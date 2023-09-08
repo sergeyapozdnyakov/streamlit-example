@@ -9,11 +9,7 @@ st.set_page_config(page_title="Распределение заказов кал�
                    page_icon="🧊",
                     layout="wide",
                     initial_sidebar_state="expanded",
-                    menu_items={
-                        'Get Help': 'https://www.extremelycoolapp.com/help',
-                        'Report a bug': "https://www.extremelycoolapp.com/bug",
-                        'About': "# This is a header. This is an *extremely* cool app!"
-                    } )
+                    )
 
 @st.cache_data
 def convert_df(df):
@@ -21,7 +17,7 @@ def convert_df(df):
     return df.to_csv().encode('utf-8')
 
 
-calligraphers_empty = [{'name': '', 'productivity': 0, 'work_hours': 0}]
+calligraphers = [{'name': '', 'productivity': 0, 'work_hours': 0}]
 calligraphers_sample = [{'name': 'Новикова Наталья Геннадьевна Каллиграф', 'productivity': 3000, 'work_hours': 40},
 {'name': 'Мария Нелюбина ( Крахмалева Ольга)', 'productivity': 3960, 'work_hours': 35},
 {'name': 'Хусиянова Динара', 'productivity': 3000, 'work_hours': 0},
@@ -57,7 +53,7 @@ calligraphers_sample = [{'name': 'Новикова Наталья Геннадь
 {'name': 'Поляничева Светлана Александровна', 'productivity': 2400, 'work_hours': 15},
 {'name': 'Демьянова Наталья Анатольевна ', 'productivity': 1992, 'work_hours': 0}]
 
-orders_empty = [{'aroma': '', 'length': 0, 'bobbin_quantity': 0, 'quantity': 0}]
+orders = [{'aroma': '', 'length': 0, 'bobbin_quantity': 0, 'quantity': 0}]
 orders_sample = [{'aroma': 'ЛС Стекло / Духи концентрированные Rose, Jasmine, Narcissus (50мл)', 'length': 22, 'bobbin_quantity': 500, 'quantity': 3000},
 {'aroma': 'ЛС Стекло / Духи концентрированные Tobacco, Vetiver & Amber (50мл)', 'length': 21, 'bobbin_quantity': 500, 'quantity': 3000},
 {'aroma': 'ЛС Стекло / Духи концентрированные Vetiver, Neroli, Orange (50мл)', 'length': 21, 'bobbin_quantity': 500, 'quantity': 3000},
@@ -81,12 +77,11 @@ orders_sample = [{'aroma': 'ЛС Стекло / Духи концентриро�
 {'aroma': 'ЛС Тубус / Духи концентрированные Black Vanilla (50мл)', 'length': 12, 'bobbin_quantity': 500, 'quantity': 5000},
 {'aroma': 'ЛС Стекло / Духи концентрированные Pink Pepper, Elemi, Cinnamon, Leather (50мл)', 'length': 33, 'bobbin_quantity': 500, 'quantity': 10000}]
 
-calligraphers = calligraphers_empty.copy()
-orders = orders_empty.copy()
+
 def load_sample_data():
     if sample_data:
-        calligraphers = calligraphers_empty.copy()
-        orders = orders_empty.copy()
+        calligraphers = [{'name': '', 'productivity': 0, 'work_hours': 0}]
+        orders = [{'aroma': '', 'length': 0, 'bobbin_quantity': 0, 'quantity': 0}]
     else:
         calligraphers = calligraphers_sample.copy()
         orders = orders_sample.copy()
@@ -103,6 +98,9 @@ with st.sidebar:
     )
     sample_data = st.toggle('Пример данных', 
                             on_change = load_sample_data)
+    compute_length = st.select_slider(
+    'Выберите точность расчёта. Чем выше точность, тем длиннее время работы алгоритмма',
+    options=['глазом не моргнуть', 'посмотрю как крутится кружочек прогресса', 'пойду покурю... и кофе попью', 'а незамахнуться ли на всю Матрицу'])
 
 
 st.title("Распределение заказов каллиграфов")
@@ -154,7 +152,7 @@ def fitness(chromosome, calligraphers, orders):
         calligrapher_index = chromosome[i]
         calligrapher = calligraphers[calligrapher_index]
         order = orders[i]
-        time = (order['length'] * order['quantity']) / calligrapher['productivity']
+        time = round((order['length'] * order['quantity']) / calligrapher['productivity'], 1)
         times[calligrapher_index] += time
     max_time = max(times)
     
@@ -222,14 +220,15 @@ def format_report_time_by_calligrapher(best_chromosome, calligraphers):
         
         if calligrapher_name not in calligrapher_times:
             calligrapher_times[calligrapher_name] = 0
-        time = (orders[i]['length'] * orders[i]['quantity']) / calligraphers[calligrapher_index]['productivity']
+        time = round((orders[i]['length'] * orders[i]['quantity']) / calligraphers[calligrapher_index]['productivity'], 1)
         calligrapher_times[calligrapher_name] += time
             
     total_time = 0
     for calligrapher_name in calligrapher_times:
         time = calligrapher_times[calligrapher_name]
         total_time += time
-        data.append([calligrapher_name, time, calligrapher_work_hours[calligrapher_name]])
+        weeks = round(time / calligrapher_work_hours[calligrapher_name], 1)
+        data.append([calligrapher_name, time, calligrapher_work_hours[calligrapher_name], weeks])
 
     return data
 
@@ -244,7 +243,7 @@ def format_report_orders_by_calligrapher(best_chromosome, calligraphers):
             calligrapher_index = best_chromosome[i]
             calligrapher = calligraphers[calligrapher_index]
             order = orders[i]
-            time = (order['length'] * order['quantity']) / calligrapher['productivity']
+            time = round((order['length'] * order['quantity']) / calligrapher['productivity'], 1)
             times[calligrapher_index] += time
 
     for i, calligrapher in enumerate(calligraphers):
@@ -255,63 +254,64 @@ def format_report_orders_by_calligrapher(best_chromosome, calligraphers):
                 aroma_totals[order['aroma']] = 0
             aroma_totals[order['aroma']] += order['quantity']
         for aroma, total in aroma_totals.items():
-            data.append([calligrapher['name'], aroma, total, calligrapher['productivity'], calligrapher['work_hours'], times[i]])
+            weeks = round(times[i] / calligrapher['work_hours'], 1)
+            data.append([calligrapher['name'], aroma, total, calligrapher['productivity'], calligrapher['work_hours'], times[i], weeks])
 
     return data
 
 
-def format_report_calligraphers_by_order(best_chromosome, calligraphers):
-    # Вывод результата
-    order_counts = {}
-    calligrapher_times = {}
-    for i in range(len(best_chromosome)):
-        calligrapher_index = best_chromosome[i]
-        calligrapher_name = calligraphers[calligrapher_index]['name']
-        order_name = orders[i]['aroma']
-        if order_name not in order_counts:
-            order_counts[order_name] = {}
-        if calligrapher_name not in order_counts[order_name]:
-            order_counts[order_name][calligrapher_name] = 0
-        order_counts[order_name][calligrapher_name] += orders[i]['quantity']
+# def format_report_calligraphers_by_order(best_chromosome, calligraphers):
+#     # Вывод результата
+#     order_counts = {}
+#     calligrapher_times = {}
+#     for i in range(len(best_chromosome)):
+#         calligrapher_index = best_chromosome[i]
+#         calligrapher_name = calligraphers[calligrapher_index]['name']
+#         order_name = orders[i]['aroma']
+#         if order_name not in order_counts:
+#             order_counts[order_name] = {}
+#         if calligrapher_name not in order_counts[order_name]:
+#             order_counts[order_name][calligrapher_name] = 0
+#         order_counts[order_name][calligrapher_name] += orders[i]['quantity']
         
-        if calligrapher_name not in calligrapher_times:
-            calligrapher_times[calligrapher_name] = 0
-        time = (orders[i]['length'] * orders[i]['quantity']) / calligraphers[calligrapher_index]['productivity']
-        calligrapher_times[calligrapher_name] += time
+#         if calligrapher_name not in calligrapher_times:
+#             calligrapher_times[calligrapher_name] = 0
+#         time = (orders[i]['length'] * orders[i]['quantity']) / calligraphers[calligrapher_index]['productivity']
+#         calligrapher_times[calligrapher_name] += time
 
-    for order_name in order_counts:
-        print(f"Order: {order_name}")
-        for calligrapher_name in order_counts[order_name]:
-            quantity = order_counts[order_name][calligrapher_name]
-            print(f"Calligrapher {calligrapher_name} assigned {quantity} labels")
+#     for order_name in order_counts:
+#         print(f"Order: {order_name}")
+#         for calligrapher_name in order_counts[order_name]:
+#             quantity = order_counts[order_name][calligrapher_name]
+#             print(f"Calligrapher {calligrapher_name} assigned {quantity} labels")
             
-    print("\nTotal time by calligrapher:")
-    total_time = 0
-    for calligrapher_name in calligrapher_times:
-        time = calligrapher_times[calligrapher_name]
-        total_time += time
-        print(f"Calligrapher {calligrapher_name} total time: {time:.2f} hours") 
-    print(f"Total time: {total_time:.2f} hours")
+#     print("\nTotal time by calligrapher:")
+#     total_time = 0
+#     for calligrapher_name in calligrapher_times:
+#         time = calligrapher_times[calligrapher_name]
+#         total_time += time
+#         print(f"Calligrapher {calligrapher_name} total time: {time:.1f} hours") 
+#     print(f"Total time: {total_time:.2f} hours")
 
-    times = [0] * len(calligraphers)
+#     times = [0] * len(calligraphers)
 
-    for i in range(len(best_chromosome)):
-            calligrapher_index = best_chromosome[i]
-            calligrapher = calligraphers[calligrapher_index]
-            order = orders[i]
-            time = (order['length'] * order['quantity']) / calligrapher['productivity']
-            times[calligrapher_index] += time
+#     for i in range(len(best_chromosome)):
+#             calligrapher_index = best_chromosome[i]
+#             calligrapher = calligraphers[calligrapher_index]
+#             order = orders[i]
+#             time = (order['length'] * order['quantity']) / calligrapher['productivity']
+#             times[calligrapher_index] += time
 
-    for i, calligrapher in enumerate(calligraphers):
-        print(f"{calligrapher['name']}: {times[i]:.2f} hours")
-        calligrapher_orders = [orders[j] for j in range(len(best_chromosome)) if best_chromosome[j] == i]
-        aroma_totals = {}
-        for order in calligrapher_orders:
-            if order['aroma'] not in aroma_totals:
-                aroma_totals[order['aroma']] = 0
-            aroma_totals[order['aroma']] += order['quantity']
-        for aroma, total in aroma_totals.items():
-            print(f"\t{aroma}: {total} units")
+#     for i, calligrapher in enumerate(calligraphers):
+#         print(f"{calligrapher['name']}: {times[i]:.2f} hours")
+#         calligrapher_orders = [orders[j] for j in range(len(best_chromosome)) if best_chromosome[j] == i]
+#         aroma_totals = {}
+#         for order in calligrapher_orders:
+#             if order['aroma'] not in aroma_totals:
+#                 aroma_totals[order['aroma']] = 0
+#             aroma_totals[order['aroma']] += order['quantity']
+#         for aroma, total in aroma_totals.items():
+#             print(f"\t{aroma}: {total} units")
     
 # Запуск расчета распределения заказов по каллиграфам
 if st.button('Запустить расчет'):
@@ -319,12 +319,30 @@ if st.button('Запустить расчет'):
     save_edits()
     
     valid_calligraphers = [c for c in st.session_state.calligraphers if c['productivity'] > 0 and c['work_hours'] > 0] 
-    orders = st.session_state.orders
+    
     if calculation_type == "Разбить заказы на бобины":
         orders = split_orders(st.session_state.orders) 
+    else:
+        orders = st.session_state.orders
     
+    match compute_length:
+        case 'глазом не моргнуть':
+            gen = 100
+            population = 10
+        case 'посмотрю как крутится кружочек прогресса':
+            gen = 1000
+            population = 200
+        case 'пойду покурю... и кофе попью':
+            gen = 10000
+            population = 500
+        case 'а незамахнуться ли на всю Матрицу':
+            gen = 50000
+            population = 1000
+        case _:
+            gen = 1000
+            population = 200
     with st.spinner('Расчет распределения заказов по каллиграфам...'):
-        best_chromosome = genetic_algorithm(valid_calligraphers, orders)
+        best_chromosome = genetic_algorithm(valid_calligraphers, orders, population_size=population, max_generations = gen)
 
         st.success('Расчет завершен!')
 
@@ -332,23 +350,30 @@ if st.button('Запустить расчет'):
 
         data = format_report_time_by_calligrapher(best_chromosome, valid_calligraphers)
         result = pd.DataFrame(data,
-                              columns=['name', 'time', 'work_hours'])
+                              columns=['name', 'time', 'work_hours', 'weeks'])
 
         st.header("Суммарное время выполнения заказов")
         st.dataframe(result, column_config={
                 "name": st.column_config.TextColumn("ФИО каллиграфа", width=400), 
-                "time": st.column_config.NumberColumn("Время выполнения заказов, часы", format="%.2f"),
-                "work_hours": st.column_config.NumberColumn("Рабочих часов в неделю", format="%d")
+                "time": st.column_config.NumberColumn("Время выполнения заказов, часы", format="%.1f"),
+                "work_hours": st.column_config.NumberColumn("Рабочих часов в неделю", format="%d"),
+                "weeks": st.column_config.NumberColumn("Недель", format="%.1f")
             })
+        st.header("Суммарное время выполнения заказов в часах")
         st.bar_chart(result,
             x='name',
             y='time'
         )
 
+        st.header("Суммарное время выполнения заказов в неделях")
+        st.bar_chart(result,
+            x='name',
+            y='weeks'
+        )
 
         data = format_report_orders_by_calligrapher(best_chromosome, valid_calligraphers)
         result = pd.DataFrame(data,
-                              columns=['name', 'aroma', 'quantity', 'productivity', 'work_hours', 'time'])
+                              columns=['name', 'aroma', 'quantity', 'productivity', 'work_hours', 'time', 'weeks'])
         st.header("Список заказов по каллиграфам")
         st.dataframe(result, column_config={
                 "name": st.column_config.TextColumn("ФИО каллиграфа", width=400), 
@@ -356,10 +381,11 @@ if st.button('Запустить расчет'):
                 "quantity": st.column_config.NumberColumn("Количество маркировок", format="%d"),
                 "productivity": st.column_config.NumberColumn("Производительность, символов/час", format="%d"),
                 "work_hours": st.column_config.NumberColumn("Рабочих часов в неделю", format="%d"),
-                "time": st.column_config.NumberColumn("Время выполнения заказа, часы", format="%.2f")
+                "time": st.column_config.NumberColumn("Время выполнения заказа, часы", format="%.1f"),
+                "weeks": st.column_config.NumberColumn("Время выполнения заказа, недели", format="%.1f")
             })
 
-        csv = convert_df(result)
+        csv = result.to_csv(sep=';', decimal=',').encode('utf-8-sig')
 
         st.download_button(
             label="Сохранить в формате CSV",
