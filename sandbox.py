@@ -325,22 +325,38 @@ if st.button('Запустить расчет'):
     else:
         orders = st.session_state.orders
     
-    match compute_length:
-        case 'глазом не моргнуть':
-            gen = 100
-            population = 10
-        case 'посмотрю как крутится кружочек прогресса':
-            gen = 1000
-            population = 200
-        case 'пойду покурю... и кофе попью':
-            gen = 10000
-            population = 500
-        case 'а незамахнуться ли на всю Матрицу':
-            gen = 50000
-            population = 1000
-        case _:
-            gen = 1000
-            population = 200
+    if compute_length == 'глазом не моргнуть':
+        gen = 100
+        population = 10
+    elif compute_length == 'посмотрю как крутится кружочек прогресса':
+        gen = 1000
+        population = 200
+    elif compute_length ==  'пойду покурю... и кофе попью':
+        gen = 10000
+        population = 500
+    elif compute_length ==  'а незамахнуться ли на всю Матрицу':
+        gen = 50000
+        population = 1000
+    else:
+        gen = 1000
+        population = 200
+
+    # match compute_length:
+    #     case 'глазом не моргнуть':
+    #         gen = 100
+    #         population = 10
+    #     case 'посмотрю как крутится кружочек прогресса':
+    #         gen = 1000
+    #         population = 200
+    #     case 'пойду покурю... и кофе попью':
+    #         gen = 10000
+    #         population = 500
+    #     case 'а незамахнуться ли на всю Матрицу':
+    #         gen = 50000
+    #         population = 1000
+    #     case _:
+    #         gen = 1000
+    #         population = 200
     with st.spinner('Расчет распределения заказов по каллиграфам...'):
         best_chromosome = genetic_algorithm(valid_calligraphers, orders, population_size=population, max_generations = gen)
 
